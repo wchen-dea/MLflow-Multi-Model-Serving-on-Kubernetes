@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wine-classifier
+  namespace: __NAMESPACE__
+  labels:
+    app: wine-classifier
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wine-classifier
+  template:
+    metadata:
+      labels:
+        app: wine-classifier
+    spec:
+      containers:
+      - name: wine-classifier
+        image: __WINE_IMAGE__
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        env:
+        - name: PROTOCOL
+          value: "v2"
+        resources:
+          limits:
+            cpu: "2"
+            memory: 4Gi
+          requests:
+            cpu: "1"
+            memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wine-classifier
+  namespace: __NAMESPACE__
+spec:
+  selector:
+    app: wine-classifier
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8080
+    targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: california-housing
+  namespace: __NAMESPACE__
+  labels:
+    app: california-housing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: california-housing
+  template:
+    metadata:
+      labels:
+        app: california-housing
+    spec:
+      containers:
+      - name: california-housing
+        image: __CALIFORNIA_IMAGE__
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+        env:
+        - name: PROTOCOL
+          value: "v2"
+        resources:
+          limits:
+            cpu: "2"
+            memory: 4Gi
+          requests:
+            cpu: "1"
+            memory: 2Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: california-housing
+  namespace: __NAMESPACE__
+spec:
+  selector:
+    app: california-housing
+  ports:
+  - name: http
+    protocol: TCP
+    port: 8080
+    targetPort: 8080
+  type: ClusterIP

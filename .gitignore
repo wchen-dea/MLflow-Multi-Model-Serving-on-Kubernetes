@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+model/__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.coverage
+
+# Local environments
+.venv/
+.env
+.build/
+
+# MLflow local state
+mlflow.db
+mlruns/
+*.log
+
+# OS files
+.DS_Store
