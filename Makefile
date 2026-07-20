@@ -1,4 +1,4 @@
-.PHONY: help uv-sync env-health k8s-up k8s-ns build-images load-images render-manifest deploy mlflow-server tune train-xgboost train-all infer-wine infer-california full
+.PHONY: help uv-sync env-health k8s-up k8s-ns build-images load-images render-manifest deploy mlflow-server tune train-xgboost train-all infer-wine infer-california full teardown
 
 SHELL := /bin/zsh
 PYTHON := uv run python
@@ -37,6 +37,7 @@ help:
 	echo "  infer-wine    - Port-forward wine service and submit wine inference request"
 	echo "  infer-california - Port-forward california service and submit california inference request"
 	echo "  full          - Run end-to-end local pipeline sequentially"
+	echo "  teardown      - Delete minikube cluster, remove local images, and clean build artifacts"
 
 uv-sync:
 	uv sync
@@ -57,18 +58,22 @@ build-images:
 	BUILD_ENGINE=minikube WINE_IMAGE=$(WINE_IMAGE) CALIFORNIA_IMAGE=$(CALIFORNIA_IMAGE) ./$(BUILD_SCRIPT)
 
 load-images:
-	@docker image inspect $(WINE_IMAGE) >/dev/null 2>&1 || { \
-		echo "Missing local image: $(WINE_IMAGE)"; \
-		echo "Build or tag it locally before running make load-images."; \
-		exit 1; \
-	}
-	@docker image inspect $(CALIFORNIA_IMAGE) >/dev/null 2>&1 || { \
-		echo "Missing local image: $(CALIFORNIA_IMAGE)"; \
-		echo "Build or tag it locally before running make load-images."; \
-		exit 1; \
-	}
-	minikube image load --overwrite=true $(WINE_IMAGE)
-	minikube image load --overwrite=true $(CALIFORNIA_IMAGE)
+	@if [[ "$(LOCAL_CLUSTER)" == "true" ]]; then \
+		echo "Images already loaded into minikube by build-images. Skipping."; \
+	else \
+		docker image inspect $(WINE_IMAGE) >/dev/null 2>&1 || { \
+			echo "Missing local image: $(WINE_IMAGE)"; \
+			echo "Build or tag it locally before running make load-images."; \
+			exit 1; \
+		}; \
+		docker image inspect $(CALIFORNIA_IMAGE) >/dev/null 2>&1 || { \
+			echo "Missing local image: $(CALIFORNIA_IMAGE)"; \
+			echo "Build or tag it locally before running make load-images."; \
+			exit 1; \
+		}; \
+		minikube image load --overwrite=true $(WINE_IMAGE); \
+		minikube image load --overwrite=true $(CALIFORNIA_IMAGE); \
+	fi
 
 render-manifest:
 	mkdir -p .build
@@ -128,4 +133,9 @@ full:
 	$(MAKE) deploy
 	echo "Start MLflow server in another terminal: make mlflow-server"
 	$(MAKE) train-all
-	$(MAKE) infer-wine
+
+teardown:
+	pkill -f "mlflow server" 2>/dev/null || true
+	minikube delete || true
+	docker rmi -f $(WINE_IMAGE) $(CALIFORNIA_IMAGE) 2>/dev/null || true
+	rm -rf .build mlflow.db

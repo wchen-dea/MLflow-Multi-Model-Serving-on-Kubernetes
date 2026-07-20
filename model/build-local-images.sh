@@ -118,14 +118,18 @@ write_mlserver_config "$CALIFORNIA_CONTEXT"
 cd "$ROOT_DIR"
 
 if [[ "$BUILD_ENGINE" == "minikube" ]]; then
+  # Always build in local Docker first so the image is fresh for `make load-images`.
+  # Then load into minikube from the local daemon.
   (
     cd .build/wine
-    minikube image build -f Dockerfile.mlserver -t "$WINE_IMAGE" .
+    docker build -f Dockerfile.mlserver -t "$WINE_IMAGE" .
   )
   (
     cd .build/california
-    minikube image build -f Dockerfile.mlserver -t "$CALIFORNIA_IMAGE" .
+    docker build -f Dockerfile.mlserver -t "$CALIFORNIA_IMAGE" .
   )
+  minikube image load --overwrite=true "$WINE_IMAGE"
+  minikube image load --overwrite=true "$CALIFORNIA_IMAGE"
 else
   (
     cd .build/wine

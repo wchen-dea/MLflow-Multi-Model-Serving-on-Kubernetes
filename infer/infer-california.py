@@ -5,7 +5,7 @@ import requests
 
 
 def main() -> None:
-    url = os.getenv("INFER_URL", "http://localhost:8080/v2/models/mlflow-model/infer")
+    url = os.getenv("INFER_URL", "http://localhost:8081/v2/models/mlflow-model/infer")
     payload = {
         "inputs": [
             {

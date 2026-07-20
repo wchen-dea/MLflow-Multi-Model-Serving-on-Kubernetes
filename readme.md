@@ -32,12 +32,13 @@ make help
 Useful targets:
 
 - make env-health: recreate .venv and verify dependency imports
-- make build-images: build local serving images from latest MLflow model artifacts
+- make build-images: build local serving images from latest MLflow model artifacts (also loads them into Minikube when LOCAL_CLUSTER=true)
 - make deploy: unified Kubernetes deployment path for local or production
 - make mlflow-server: run the MLflow tracking and registry server
 - make train-all: run both MLflow-managed training flows
-- make infer-wine: run wine inference against the deployed service
-- make infer-california: run California inference against the deployed service
+- make infer-wine: port-forward wine service and run inference
+- make infer-california: port-forward california service and run inference
+- make teardown: stop MLflow server, delete Minikube cluster, remove local images, and clean build artifacts
 
 ## Responsibilities
 
@@ -91,8 +92,7 @@ This local path automatically:
 
 - starts or reuses Minikube
 - ensures the namespace exists
-- builds local serving images from the latest MLflow artifacts
-- loads those images into Minikube
+- builds local serving images from the latest MLflow artifacts and loads them into Minikube
 - deploys the rendered Kubernetes manifest
 
 1. Or deploy to production using registry images:
@@ -112,6 +112,16 @@ This uses the same manifest path, but skips Minikube-specific build/load steps.
 make infer-wine
 make infer-california
 ```
+
+Each target opens a temporary port-forward, sends the request, then tears it down.
+
+1. To shut everything down and clean up:
+
+```bash
+make teardown
+```
+
+This kills the MLflow server process, deletes the Minikube cluster, removes local Docker images, and cleans `.build/` and `mlflow.db`.
 
 ## Manual uv Commands
 
@@ -154,13 +164,15 @@ uv run python train/train-california-xgboost.py
 
 ```bash
 minikube start --driver=docker
-make build-images
 kubectl create namespace mlflow-kserve-test --dry-run=client -o yaml | kubectl apply -f -
+make build-images
 make render-manifest
 kubectl apply -f .build/model-serving.rendered.yml
 kubectl rollout status deployment/wine-classifier -n mlflow-kserve-test
 kubectl rollout status deployment/california-housing -n mlflow-kserve-test
 ```
+
+> **Note:** `make build-images` builds images in local Docker and automatically loads them into Minikube. Do not run `make load-images` separately after `make build-images` — it is a no-op for local cluster builds and exists only for non-local workflows.
 
 For production, render and deploy the same path with different image values:
 
@@ -173,23 +185,26 @@ make deploy LOCAL_CLUSTER=false \
 
 ### 5) Port-forward and send inference request
 
-In terminal C:
+The easiest way is via Make, which handles the port-forward automatically:
 
 ```bash
-kubectl -n mlflow-kserve-test port-forward svc/wine-classifier 8080:8080
+make infer-wine
+make infer-california
 ```
 
-In terminal D, send wine inference with Python:
+To run the scripts directly, start a port-forward first:
 
 ```bash
-uv run python infer/infer-wine.py
+# Wine classifier (port 8080)
+kubectl -n mlflow-kserve-test port-forward svc/wine-classifier 8080:8080 &
+sleep 2 && uv run python infer/infer-wine.py
+
+# California housing (port 8081)
+kubectl -n mlflow-kserve-test port-forward svc/california-housing 8081:8080 &
+sleep 2 && uv run python infer/infer-california.py
 ```
 
-Send California housing inference with Python:
-
-```bash
-uv run python infer/infer-california.py
-```
+> **Note:** Running the infer scripts directly without an active port-forward will result in a `Connection refused` error. The services are only accessible inside the Minikube cluster.
 
 MLflow UI and run links are available at:
 
