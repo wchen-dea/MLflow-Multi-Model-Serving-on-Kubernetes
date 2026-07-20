@@ -56,7 +56,7 @@ def eval_metrics(pred, actual):
 
 # Set th experiment 
 mlflow.set_tracking_uri('http://localhost:5000')
-mlflow.set_experiment("Wine-Quality-II")
+mlflow.set_experiment("Wine-Quality-Experiment")
 
 # Load wine quality dataset
 X, y = datasets.load_wine(return_X_y=True)

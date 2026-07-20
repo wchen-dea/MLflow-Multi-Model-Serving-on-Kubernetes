@@ -33,12 +33,11 @@ Useful targets:
 
 - make env-health: recreate .venv and verify dependency imports
 - make build-images: build local serving images from latest MLflow model artifacts
-- make load-images: validate and load local model images into Minikube
 - make deploy: unified Kubernetes deployment path for local or production
 - make mlflow-server: run the MLflow tracking and registry server
 - make train-all: run both MLflow-managed training flows
 - make infer-wine: run wine inference against the deployed service
-- make infer-california: run california inference against the deployed service
+- make infer-california: run California inference against the deployed service
 
 ## Responsibilities
 
@@ -114,7 +113,7 @@ make infer-wine
 make infer-california
 ```
 
-## Manual uv Commands (optional)
+## Manual uv Commands
 
 If you prefer not to use Make targets, use direct uv/kubectl commands below.
 
@@ -128,35 +127,7 @@ uv sync
 
 This is the operational entrypoint for restoring the environment.
 
-### 2) Start local Kubernetes
-
-```bash
-minikube start --driver=docker
-kubectl create namespace mlflow-kserve-test --dry-run=client -o yaml | kubectl apply -f -
-```
-
-### 3) Build and deploy the model service locally
-
-Use the shared Kubernetes manifest:
-
-```bash
-make build-images
-make load-images
-kubectl create namespace mlflow-kserve-test --dry-run=client -o yaml | kubectl apply -f -
-kubectl apply -f .build/model-serving.rendered.yml
-kubectl rollout status deployment/wine-classifier -n mlflow-kserve-test
-```
-
-For production, render and deploy the same path with different image values:
-
-```bash
-make deploy LOCAL_CLUSTER=false \
-  NAMESPACE=your-namespace \
-  WINE_IMAGE=registry.example.com/your-team/wine-classifier:tag \
-  CALIFORNIA_IMAGE=registry.example.com/your-team/california-housing-xgboost:tag
-```
-
-### 4) Start MLflow tracking server
+### 2) Start MLflow tracking server
 
 In terminal A:
 
@@ -170,7 +141,7 @@ uv run mlflow server \
 
 This server backs the full ML lifecycle for the project, including experiment tracking and model registry.
 
-### 5) Run MLflow-managed training
+### 3) Run training
 
 In terminal B:
 
@@ -179,17 +150,28 @@ uv run python train/train-wine-hpt.py
 uv run python train/train-california-xgboost.py
 ```
 
-Both scripts:
+### 4) Deploy locally
 
-- log runs, params, and metrics to MLflow
-- evaluate a champion threshold
-- register the model only when the threshold is met
+```bash
+minikube start --driver=docker
+make build-images
+kubectl create namespace mlflow-kserve-test --dry-run=client -o yaml | kubectl apply -f -
+make render-manifest
+kubectl apply -f .build/model-serving.rendered.yml
+kubectl rollout status deployment/wine-classifier -n mlflow-kserve-test
+kubectl rollout status deployment/california-housing -n mlflow-kserve-test
+```
 
-MLflow UI and run links are available at:
+For production, render and deploy the same path with different image values:
 
-- <http://127.0.0.1:5000>
+```bash
+make deploy LOCAL_CLUSTER=false \
+  NAMESPACE=your-namespace \
+  WINE_IMAGE=registry.example.com/your-team/wine-classifier:tag \
+  CALIFORNIA_IMAGE=registry.example.com/your-team/california-housing-xgboost:tag
+```
 
-### 6) Port-forward and send inference request
+### 5) Port-forward and send inference request
 
 In terminal C:
 
@@ -208,6 +190,10 @@ Send California housing inference with Python:
 ```bash
 uv run python infer/infer-california.py
 ```
+
+MLflow UI and run links are available at:
+
+- <http://127.0.0.1:5000>
 
 ## Notes
 
